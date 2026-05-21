@@ -38,6 +38,6 @@ jobs:
         docker compose pull
         docker compose up -d --remove-orphans
     
-    call-nginx:
-      needs: [Deploy Mailcow via Docker]
+  call-nginx:
+      needs: [deploy]
       uses: leoserverteam/DevOpsTemplates/.github/workflows/deploynginx.yml@main
