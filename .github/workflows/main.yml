@@ -1,0 +1,43 @@
+name: Deploy Mailcow to Home Server
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted 
+
+    steps:
+    - name: Checkout repository code
+      uses: actions/checkout@v4
+
+    - name: Deploy Mailcow via Docker
+      run: |
+        # Определяем целевую папку в домашней директории пользователя раннера
+        TARGET_DIR="${{vars.DEPLOY_PATH}}/${{ github.event.repository.name }}"
+        mkdir -p "$TARGET_DIR"
+        
+        # 1. Если Mailcow еще не клонирован на сервере, инициализируем его
+        if [ ! -d "$TARGET_DIR/.git" ]; then
+          git clone https://github.com/mailcow/mailcow-dockerized "$TARGET_DIR"
+        fi
+        
+        # 2. Обновляем кодовую базу Mailcow из официального репозитория
+        cd "$TARGET_DIR"
+        git fetch --all
+        git checkout master
+        git pull
+        
+        # 3. Подставляем ваш настроенный mailcow.conf из секретов GitHub
+        # (Заранее добавьте содержимое файла в Settings -> Secrets -> Actions -> MAILCOW_CONF)
+        echo "${{ secrets.CONFIG }}" > mailcow.conf
+        
+        # 4. Скачиваем свежие образы и перезапускаем контейнеры без root (пользователь раннера должен быть в группе docker)
+        docker compose down
+        docker compose pull
+        docker compose up -d --remove-orphans
+    
+    call-nginx:
+      needs: [Deploy Mailcow via Docker]
+      uses: leoserverteam/DevOpsTemplates/.github/workflows/deploynginx.yml@main
